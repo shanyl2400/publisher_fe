@@ -44,11 +44,14 @@ export function getPublishLogs(successFn, failedFn) {
       });
 }
 
-export function publish(data, successFn, failedFn) {
+export function publish(data) {
+  return new Promise((resolve, reject) => {
     axios.post(baseurl + "/publish", data).then(function (response) {
-        successFn(response.data);
-      })
-      .catch(function (error) {
-        failedFn(error.response);
-      });
+      resolve(response.data);
+    })
+    .catch(function (error) {
+      reject(error.response);
+    });
+  });
+   
 }

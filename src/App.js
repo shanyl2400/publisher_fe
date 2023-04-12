@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   ChakraProvider,
   FormControl,
@@ -22,6 +22,7 @@ import {
   Td,
   TableCaption,
   TableContainer,
+  HStack,
 } from '@chakra-ui/react';
 import {
   listBranches,
@@ -30,6 +31,7 @@ import {
   getPublishLogs,
   publish,
 } from "./api/api";
+import { PublishAlterDialog } from "./components/PublishAlterDialog";
 
 function App() {
   const toast = useToast();
@@ -41,6 +43,7 @@ function App() {
 
   const [outerZRTC, setOuterZRTC] = useState(false)
   const [publishLoading, setPublishLoading] = useState(false)
+  const [publishAlterDialogVisible, setPublishAlterDialogVisible] = useState(false)
 
   const [version, setVersion] = useState("");
 
@@ -72,7 +75,7 @@ function App() {
     });
   }, []);
 
-  const fetchZrtcs = (branch)=>{
+  const fetchZrtcs = (branch) => {
     listZrtcs().then((data) => {
       setZrtcVersion(data.zrtcs);
       // updateSelectedZrtc(data.zrtcs[data.zrtcs.length - 1].path);
@@ -94,7 +97,7 @@ function App() {
     setVersion(branch + "." + parseZRTCVersion(selectedZrtc));
   }
 
-  const updateZRTCVersion = ()=>{
+  const updateZRTCVersion = () => {
     setVersion(selectedBranch + "." + parseZRTCVersion(selectedZrtc));
   }
 
@@ -102,7 +105,7 @@ function App() {
     setOuterZRTC(checked);
     if (checked) {
       setVersion(selectedBranch + ".zrtc-outer");
-    }else{
+    } else {
       setVersion(selectedBranch + "." + parseZRTCVersion(selectedZrtc));
     }
   }
@@ -112,7 +115,7 @@ function App() {
   }
 
   const fetchRecords = useCallback(() => {
-    listPublishRecords((data)=>{
+    listPublishRecords((data) => {
       setPublishRecords(data.records)
     }, err => {
       toastError('发布记录失败', err);
@@ -126,6 +129,20 @@ function App() {
     })
   }
 
+  const confirmPublish = (isConfirm) => {
+    setPublishAlterDialogVisible(false);
+    if(isConfirm) {
+      onPublish();
+    }else{
+      setPublishLoading(false);
+    }
+  }
+
+  const onPublishClick = () => {
+    setPublishLoading(true);
+    setPublishAlterDialogVisible(true);
+  }
+
   const onPublish = () => {
     if (version == "" || selectedBranch == "") {
       toast({
@@ -134,11 +151,11 @@ function App() {
         status: 'warning',
         duration: 6000,
         isClosable: true,
-      })
+      });
+      setPublishLoading(false);
       return;
     }
 
-    setPublishLoading(true);
     let data = {
       gomss_branch: selectedBranch,
       zrtc_path: selectedZrtc,
@@ -146,7 +163,7 @@ function App() {
       version: version,
     }
     let intervalID;
-    publish(data, () => {
+    publish(data).then((res) => {
       toast({
         title: '发布成功',
         description: "版本" + version + "发布成功!",
@@ -159,7 +176,7 @@ function App() {
       fetchPublishLogs();
 
       fetchRecords();
-    }, (err) => {
+    }).catch((err) => {
       toastError('发布失败', err);
       setPublishLoading(false);
       clearInterval(intervalID);
@@ -173,29 +190,27 @@ function App() {
 
   const dateFormat = (timestamp) => {
     let date = new Date(timestamp);
-    return date.getFullYear()+
-    "年"+(date.getMonth()+1)+
-    "月"+date.getDate()+
-    "日 "+date.getHours()+
-    ":"+date.getMinutes()+
-    ":"+date.getSeconds()
+    return date.getFullYear() +
+      "年" + (date.getMonth() + 1) +
+      "月" + date.getDate() +
+      "日 " + date.getHours() +
+      ":" + date.getMinutes() +
+      ":" + date.getSeconds()
   }
 
   useEffect(() => {
     // fetchZrtcs();
     fetchBranchesAndZRTC();
     fetchRecords();
-
   }, [fetchBranchesAndZRTC, fetchRecords]);
   return (
     <ChakraProvider className="App">
       <Box padding='8' color='black' maxW='md'>
-        <Heading>GOMSS发版工具 v0.1</Heading>
+        <Heading>GOMSS发版工具 v0.2</Heading>
       </Box>
       <Flex >
         <Box padding='6' w='600px'>
-
-          <Box>
+          <Stack spacing={5}>
             <FormControl>
               <FormLabel>GOMSS版本</FormLabel>
               <Select value={selectedBranch} onChange={(event) => { updateSelectedBranch(event.target.value) }}>
@@ -225,40 +240,40 @@ function App() {
 
             <FormControl>
               <FormLabel>版本号</FormLabel>
-              <Input value={version} isReadOnly={true} onChange={event => { setVersion(event.target.value) }} />
+              <Input value={version} isReadOnly={true} />
             </FormControl>
-
+          </Stack>
+          <FormControl>
             <Button
               mt={4}
-              colorScheme='teal'
+              colorScheme='blue'
               type='submit'
-              onClick={() => onPublish()}
+              onClick={() => onPublishClick()}
               isLoading={publishLoading}
             >
               发布
             </Button>
-          </Box>
+          </FormControl>
         </Box>
 
-        <Box 
-        flex='1' 
-        maxH='400'
-         minH='400' 
-         padding='4' 
-         overflowY={"scroll"} 
-         margin='6' 
-         borderWidth='1px' 
-         borderRadius='lg'>
+        <Box
+          flex='1'
+          maxH='400'
+          minH='400'
+          padding='4'
+          overflowY={"scroll"}
+          margin='6'
+          borderWidth='1px'
+          borderRadius='lg'>
           <Text>---运行日志---</Text>
           {logs.map((item) => {
             return <Text style={{ whiteSpace: "pre-wrap" }}>{item}</Text>
           })}
-
         </Box>
       </Flex>
 
-      <TableContainer padding='10'>
-        <Table size='sm'>
+      <TableContainer padding='5'>
+        <Table size='sm' variant='striped'  colorScheme='gray'>
           <Thead>
             <Tr>
               <Th>发布时间</Th>
@@ -268,17 +283,24 @@ function App() {
             </Tr>
           </Thead>
           <Tbody>
-            {publishRecords.map(item=>{
-              return  <Tr>
-                        <Td>{dateFormat(item.recorded_at)}</Td>
-                        <Td>{item.version}</Td>
-                        <Td>{item.gomss_branch}</Td>
-                        <Td>{item.zrtc_version}</Td>
-                      </Tr>
+            {publishRecords.map(item => {
+              return <Tr>
+                <Td>{dateFormat(item.recorded_at)}</Td>
+                <Td>{item.version}</Td>
+                <Td>{item.gomss_branch}</Td>
+                <Td>{item.zrtc_version}</Td>
+              </Tr>
             })}
           </Tbody>
         </Table>
       </TableContainer>
+
+      <PublishAlterDialog
+        visible={publishAlterDialogVisible}
+        onClose={() => { confirmPublish(false) }}
+        onOK={() => { confirmPublish(true) }}
+        version={version}
+      />
     </ChakraProvider>
   );
 }
